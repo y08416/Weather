@@ -1,22 +1,51 @@
 import requests
-import json
+from datetime import datetime
+import pytz
 
-# 気象庁データの取得
-jma_url = "https://www.jma.go.jp/bosai/forecast/data/forecast/270000.json"
-jma_json = requests.get(jma_url).json()
+# OpenWeather APIキー
+API_KEY = "15e07fd88434fffab3682ff0bbb36ba2"  # ここにAPIキーが書かれています
 
-# 取得したいデータを選ぶ
-jma_date = jma_json[0]["timeSeries"][0]["timeDefines"][0]
-jma_weather = jma_json[0]["timeSeries"][0]["areas"][0]["weathers"][0]
+def get_weather_info(latitude, longitude):
+    # OpenWeather APIのURL（f-stringの変数展開を修正）
+    weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={API_KEY}&lang=ja&units=metric"
 
-# 全角スペースの削除
-jma_weather = jma_weather.replace('　', '')
+    # APIから天気情報を取得
+    response = requests.get(weather_url)
+    
+    try:
+        weather_data = response.json()
+    except json.JSONDecodeError:
+        print("APIからの応答が正しいJSON形式ではありません")
+        return
+    
+    if response.status_code != 200:
+        print(f"エラーが発生しました: {weather_data.get('message', '不明なエラー')}")
+        return
 
-print(jma_date)
-print(jma_weather)
+    # 天気情報の抽出
+    weather_main = weather_data['weather'][0]['main']  # 天気（晴れ、雨など）
+    weather_description = weather_data['weather'][0]['description']  # 詳細説明
+    temperature = weather_data['main']['temp']  # 気温
+    city_name = weather_data['name']  # 都市名
 
-# 「雨」と「晴」の条件分岐
-if "雨" in jma_weather:
-    print("傘を用意してください")
-elif "晴" in jma_weather:
-    print("傘は必要ないでしょう")
+    # 日本時間での現在の時間を取得
+    japan_time = datetime.now(pytz.timezone('Asia/Tokyo'))
+
+    # 天気の表示
+    print(f"場所: {city_name}")
+    print(f"日本時間: {japan_time}")
+    print(f"天気: {weather_description}")
+    print(f"気温: {temperature}°C")
+
+    # 傘が必要かの判断（例: 雨が含まれているかをチェック）
+    if "雨" in weather_description:
+        print("傘を用意してください")
+    elif "晴" in weather_description:
+        print("傘は必要ないでしょう")
+
+if __name__ == "__main__":
+    # 緯度と経度を直接コードに設定
+    latitude = 35.0028724  # 例: 緯度
+    longitude = 135.766041  # 例: 経度
+
+    get_weather_info(latitude, longitude)

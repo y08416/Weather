@@ -5,6 +5,7 @@ from supabase import create_client, Client
 import json
 import firebase_admin
 from firebase_admin import credentials, messaging
+import postgrest.exceptions
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
@@ -13,7 +14,14 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-FCM_CREDENTIAL_PATH = json.loads(os.environ.get('FIREBASE_CREDENTIALS', '{}'))
+FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS', '{}')
+
+# JSONデコードのエラーをキャッチ
+try:
+    FCM_CREDENTIAL_PATH = json.loads(FIREBASE_CREDENTIALS)
+except json.JSONDecodeError as e:
+    print("FIREBASE_CREDENTIALSが正しいJSON形式ではありません:", e)
+    FCM_CREDENTIAL_PATH = {}
 
 # 環境変数の確認（デバッグ用）
 print(f"API_KEY: {API_KEY}")
@@ -23,9 +31,12 @@ print(f"FCM_CREDENTIAL_PATH: {FCM_CREDENTIAL_PATH}")
 
 # Firebase Admin SDK の初期化
 if not firebase_admin._apps:
-    cred = credentials.Certificate(FCM_CREDENTIAL_PATH)
-    firebase_admin.initialize_app(cred)
-    print("Firebase Admin SDK が正常に初期化されました。")
+    try:
+        cred = credentials.Certificate(FCM_CREDENTIAL_PATH)
+        firebase_admin.initialize_app(cred)
+        print("Firebase Admin SDK が正常に初期化されました。")
+    except Exception as e:
+        print("Firebase Admin SDK の初期化に失敗しました:", e)
 
 def get_weather_info(latitude, longitude):
     # OpenWeather APIのURL
@@ -89,42 +100,19 @@ if __name__ == "__main__":
         for user in user_query.data:
             user_id = user.get('user_id')
             fcm_token = user.get('fcm_token')
-            print(fcm_token)
+            print(f"Processing User ID: {user_id}")
+            print(f"FCM Token: {fcm_token}")
 
             if fcm_token:
                 # Locationテーブルからlatitudeとlongitudeを取得
-                # .select() メソッドの使用方法を修正
-                location_query = supabase.table("Location").select("latitude, longitude").eq("user_id", user_id).execute()
-
-                if location_query.data:
-                    location = location_query.data[0]
-                    latitude = location.get('latitude')
-                    longitude = location.get('longitude')
-                    print(f"User ID: {user_id}, latitude={latitude}, longitude={longitude}")
-
-                    weather_message = get_weather_info(latitude, longitude)
-                    if weather_message:
-                        send_push_notification(user_id, weather_message, fcm_token)
-                else:
-                    print(f"User ID: {user_id} の位置情報が見つかりませんでした")
-            else:
-                print(f"User ID: {user_id} のfcm_tokenが登録されていません")
-    else:
-        print("Userテーブルにデータが見つかりませんでした")    # Supabaseクライアントの作成
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-    # 必要なカラムを一度に取得
-    user_query = supabase.table("User").select("user_id,username,fcm_token").execute()
-
-    if user_query.data:
-        for user in user_query.data:
-            user_id = user.get('user_id')
-            fcm_token = user.get('fcm_token')
-            print(fcm_token)
-
-            if fcm_token:
-                # Locationテーブルからlatitudeとlongitudeを取得
-                location_query = supabase.table("Location").select("latitude", "longitude").eq("user_id", user_id).execute()
+                try:
+                    location_query = supabase.table("Location").select("latitude, longitude").eq("user_id", user_id).execute()
+                except postgrest.exceptions.APIError as e:
+                    print(f"Supabase APIError for user_id {user_id}: {e}")
+                    continue
+                except Exception as e:
+                    print(f"Unexpected error for user_id {user_id}: {e}")
+                    continue
 
                 if location_query.data:
                     location = location_query.data[0]

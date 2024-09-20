@@ -93,6 +93,37 @@ if __name__ == "__main__":
 
             if fcm_token:
                 # Locationテーブルからlatitudeとlongitudeを取得
+                # .select() メソッドの使用方法を修正
+                location_query = supabase.table("Location").select("latitude, longitude").eq("user_id", user_id).execute()
+
+                if location_query.data:
+                    location = location_query.data[0]
+                    latitude = location.get('latitude')
+                    longitude = location.get('longitude')
+                    print(f"User ID: {user_id}, latitude={latitude}, longitude={longitude}")
+
+                    weather_message = get_weather_info(latitude, longitude)
+                    if weather_message:
+                        send_push_notification(user_id, weather_message, fcm_token)
+                else:
+                    print(f"User ID: {user_id} の位置情報が見つかりませんでした")
+            else:
+                print(f"User ID: {user_id} のfcm_tokenが登録されていません")
+    else:
+        print("Userテーブルにデータが見つかりませんでした")    # Supabaseクライアントの作成
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # 必要なカラムを一度に取得
+    user_query = supabase.table("User").select("user_id,username,fcm_token").execute()
+
+    if user_query.data:
+        for user in user_query.data:
+            user_id = user.get('user_id')
+            fcm_token = user.get('fcm_token')
+            print(fcm_token)
+
+            if fcm_token:
+                # Locationテーブルからlatitudeとlongitudeを取得
                 location_query = supabase.table("Location").select("latitude", "longitude").eq("user_id", user_id).execute()
 
                 if location_query.data:

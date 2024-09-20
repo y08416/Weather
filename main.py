@@ -6,22 +6,24 @@ import json
 import firebase_admin
 from firebase_admin import credentials, messaging
 import postgrest.exceptions
+import sys
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
+
+# スクリプトのディレクトリを取得
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 環境変数からAPIキーとSupabaseの設定を取得
 API_KEY = os.getenv("API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS', '{}')
+FCM_CREDENTIAL_PATH = os.path.join(BASE_DIR, os.getenv("FCM_CREDENTIAL_PATH"))
 
-# JSONデコードのエラーをキャッチ
-try:
-    FCM_CREDENTIAL_PATH = json.loads(FIREBASE_CREDENTIALS)
-except json.JSONDecodeError as e:
-    print("FIREBASE_CREDENTIALSが正しいJSON形式ではありません:", e)
-    FCM_CREDENTIAL_PATH = {}
+# ファイルの存在を確認
+if not os.path.exists(FCM_CREDENTIAL_PATH):
+    print(f"エラー: FCM認証ファイルが見つかりません: {FCM_CREDENTIAL_PATH}")
+    sys.exit(1)
 
 # 環境変数の確認（デバッグ用）
 print(f"API_KEY: {API_KEY}")
@@ -37,6 +39,7 @@ if not firebase_admin._apps:
         print("Firebase Admin SDK が正常に初期化されました。")
     except Exception as e:
         print("Firebase Admin SDK の初期化に失敗しました:", e)
+        sys.exit(1)
 
 def get_weather_info(latitude, longitude):
     # OpenWeather APIのURL

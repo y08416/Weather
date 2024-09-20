@@ -13,7 +13,7 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-firebase_credentials = json.loads(os.environ.get('FIREBASE_CREDENTIALS', '{}'))
+FCM_CREDENTIAL_PATH = json.loads(os.environ.get('FIREBASE_CREDENTIALS', '{}'))
 
 # 環境変数の確認（デバッグ用）
 print(f"API_KEY: {API_KEY}")

@@ -128,6 +128,52 @@ if __name__ == "__main__":
             if fcm_token:
                 try:
                     # Locationテーブルからlatitudeとlongitudeを取得
+                    location_query = supabase.table("Location").select("latitude,longitude").eq("user_id", user_id).execute()
+                except postgrest.exceptions.APIError as e:
+                    print(f"Supabase APIError for user_id {user_id}: {e}")
+                    continue
+                except Exception as e:
+                    print(f"Unexpected error for user_id {user_id}: {e}")
+                    continue
+
+                if location_query.data:
+                    location = location_query.data[0]
+                    latitude = location.get('latitude')
+                    longitude = location.get('longitude')
+                    print(f"User ID: {user_id}, latitude={latitude}, longitude={longitude}")
+
+                    weather_message = get_weather_info(latitude, longitude)
+                    if weather_message:
+                        send_push_notification(user_id, weather_message, fcm_token)
+                else:
+                    print(f"User ID: {user_id} の位置情報が見つかりませんでした")
+            else:
+                print(f"User ID: {user_id} のfcm_tokenが登録されていません")
+    else:
+        print("Userテーブルにデータが見つかりませんでした")
+    # Supabaseクライアントの作成
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # 必要なカラムを一度に取得
+    user_query = supabase.table("User").select("user_id,username,fcm_token").execute()
+
+    if user_query.data:
+        for user in user_query.data:
+            user_id = user.get('user_id')
+            fcm_token = user.get('fcm_token')
+            print(f"Processing User ID: {user_id}")
+            print(f"FCM Token: {fcm_token}")
+
+            # UUID形式の確認
+            uuid_regex = re.compile(
+                r'^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\Z', re.I)
+            if not uuid_regex.match(user_id):
+                print(f"Invalid user_id format: {user_id}")
+                continue  # 不正な形式の場合はスキップ
+
+            if fcm_token:
+                try:
+                    # Locationテーブルからlatitudeとlongitudeを取得
                     location_query = supabase.table("Location").select("latitude, longitude").eq("user_id", user_id).execute()
                 except postgrest.exceptions.APIError as e:
                     print(f"Supabase APIError for user_id {user_id}: {e}")
